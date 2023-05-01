@@ -1,10 +1,8 @@
 import asyncio
 import functools
-from typing import Awaitable, Callable, Iterable, ParamSpec, Sized, TypeVar
+from typing import Iterable, Sized, TypeVar
 
 T = TypeVar("T")
-P = ParamSpec("P")
-
 
 class Singleton(type):
     _instances = {}
@@ -75,32 +73,3 @@ def async_partial(f, *args1, **kw1):
         return await f(*args1, *args2, **kw1, **kw2)
 
     return func
-
-
-def force_async(fn: Callable[P, T]) -> Callable[P, Awaitable[T]]:
-    """Turns a sync function to async function using threads."""
-    from concurrent.futures import ThreadPoolExecutor
-    import asyncio
-
-    pool = ThreadPoolExecutor()
-
-    @functools.wraps(fn)
-    def wrapper(*args, **kwargs):
-        future = pool.submit(fn, *args, **kwargs)
-        return asyncio.wrap_future(future)  # make it awaitable
-
-    return wrapper
-
-
-def force_sync(fn: Callable[P, Awaitable[T]]) -> Callable[P, T]:
-    """Turn an async function to sync function."""
-    import asyncio
-
-    @functools.wraps(fn)
-    def wrapper(*args, **kwargs):
-        res = fn(*args, **kwargs)
-        if asyncio.iscoroutine(res):
-            return asyncio.get_event_loop().run_until_complete(res)
-        return res
-
-    return wrapper
