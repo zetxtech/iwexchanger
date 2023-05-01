@@ -4,6 +4,7 @@ from typing import Iterable, Sized, TypeVar
 
 T = TypeVar("T")
 
+
 class Singleton(type):
     _instances = {}
 

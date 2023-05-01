@@ -77,7 +77,8 @@ class Conversation:
     context: Union[TM, TC]
     status: ConversationStatus
     params: Dict[str, Any]
-    
+
+
 @dataclass
 class MessageInfo:
     from_user: User
@@ -91,6 +92,7 @@ def name(self: TU):
 setattr(TU, "name", property(name))
 
 fake = {}
+
 
 def user_has_field(user: User, field: str):
     for ur in user.restrictions.where(Restriction.to > datetime.now()):
@@ -108,6 +110,7 @@ def user_has_field(user: User, field: str):
     else:
         return False
 
+
 def user_spec(user: User):
     if user.anonymous:
         if user.uid not in fake:
@@ -115,6 +118,7 @@ def user_spec(user: User):
         return fake[user.uid]
     else:
         return user.name
+
 
 def useroper(field: str = None, conversation=False, group=False):
     def deco(func):
@@ -136,6 +140,7 @@ def useroper(field: str = None, conversation=False, group=False):
                         await context.answer(m, show_alert=True)
                     except BadRequest:
                         await client.send_message(context.from_user.id, m)
+
             if (
                 isinstance(context, TM)
                 and context.chat.type not in (ChatType.BOT, ChatType.PRIVATE)
@@ -398,17 +403,17 @@ class Bot(metaclass=Singleton):
                     **ps(limit=2, limit_items=2),
                 ): {DDMenu("接收二次确认", "trade_revision", self.on_trade_revision)},
                 Menu("交易详情公共", "__trade_public", self.on_trade_details_public, **ms(back_to="trade_list")): {
-                    DMenu("💲 进行交易", "exchange_public", '💲 请选择您的交易方式:'): {
+                    DMenu("💲 进行交易", "exchange_public", "💲 请选择您的交易方式:"): {
                         DMenu("💲 以物易物", "exchange_public_item", self.on_exchange),
-                        DMenu("💲 使用硬币", "exchange_public_coin", self.on_exchange_coin)
+                        DMenu("💲 使用硬币", "exchange_public_coin", self.on_exchange_coin),
                     },
                     DMenu("⚠️ 举报交易", "report_public", self.on_report): None,
                     DMenu("💬 在线咨询", "contact_public", self.on_contact): None,
                 },
                 Menu("交易详情管理", "__trade_admin", self.on_trade_details_public, **ms(back_to="trade_list")): {
-                    DMenu("💲 进行交易", "exchange_admin", '💲 请选择您的交易方式:'): {
+                    DMenu("💲 进行交易", "exchange_admin", "💲 请选择您的交易方式:"): {
                         DMenu("💲 以物易物", "exchange_admin_item", self.on_exchange),
-                        DMenu("💲 使用硬币", "exchange_admin_coin", self.on_exchange_coin)
+                        DMenu("💲 使用硬币", "exchange_admin_coin", self.on_exchange_coin),
                     },
                     DMenu("💬 在线咨询", "contact_admin", self.on_contact): None,
                     DMenu("✅ 审核通过", "checked_admin", self.on_checked): None,
@@ -458,7 +463,7 @@ class Bot(metaclass=Singleton):
                     self.content_level_field_add,
                     header="👇🏼 请选择权限以添加, 或输入以手动添加:",
                     **ps(limit=5, limit_items=10),
-                ): {DMenu("添加权限", "level_field_add", self.on_level_field_add)}
+                ): {DMenu("添加权限", "level_field_add", self.on_level_field_add)},
             }
         )
 
@@ -466,13 +471,22 @@ class Bot(metaclass=Singleton):
     async def text_handler(self, client: Client, message: TM, user: User):
         if message.reply_to_message:
             minfo: MessageInfo = self._user_messages[message.reply_to_message.id]
-            if message.text == '/ban':
+            if message.text == "/ban":
                 BlackList.create(by=user, of=minfo.from_user)
                 await message.reply("🈲 已经将对方加入黑名单.")
             elif message.text:
-                m = await client.send_message(minfo.from_user.uid, f'💬 __{user_spec(user)}__ 向您发送了 **{minfo.trade.name}** 相关会话:\n\n{message.text}\n\n(回复该信息以开始与对方聊天)')
+                m = await client.send_message(
+                    minfo.from_user.uid,
+                    f"💬 __{user_spec(user)}__ 向您发送了 **{minfo.trade.name}** 相关会话:\n\n{message.text}\n\n(回复该信息以开始与对方聊天)",
+                )
                 self._user_messages[m.id] = MessageInfo(from_user=user, trade=minfo.trade)
-                self.set_conversation(user, message, ConversationStatus.CHATING, trade_id=minfo.trade.id, reply_to_user=minfo.from_user.uid)
+                self.set_conversation(
+                    user,
+                    message,
+                    ConversationStatus.CHATING,
+                    trade_id=minfo.trade.id,
+                    reply_to_user=minfo.from_user.uid,
+                )
                 m = await message.reply("✅ 已发送.")
                 await asyncio.sleep(0.5)
                 await m.delete()
@@ -665,7 +679,9 @@ class Bot(metaclass=Singleton):
                 m = await message.reply(f"🔄 正在发送.")
                 for i, ur in enumerate(urs.iterator()):
                     try:
-                        await client.send_message(ur.uid, f'📢 管理员提醒:\n\n{message.text}', parse_mode=ParseMode.MARKDOWN)
+                        await client.send_message(
+                            ur.uid, f"📢 管理员提醒:\n\n{message.text}", parse_mode=ParseMode.MARKDOWN
+                        )
                     except BadRequest:
                         fails += 1
                     await m.edit_text(f"🔄 正在发送: {i+1}/{count} 个用户.")
@@ -696,7 +712,10 @@ class Bot(metaclass=Singleton):
             elif conv.status == ConversationStatus.CHATING:
                 t = Trade.get_by_id(int(conv.params["trade_id"]))
                 u = conv.params.get("reply_to_user", t.user.uid)
-                m = await client.send_message(u, f'💬 __{user_spec(user)}__ 向您发送了 **{t.name}** 相关会话:\n\n{message.text}\n\n(回复该信息以开始与对方聊天)')
+                m = await client.send_message(
+                    u,
+                    f"💬 __{user_spec(user)}__ 向您发送了 **{t.name}** 相关会话:\n\n{message.text}\n\n(回复该信息以开始与对方聊天)",
+                )
                 self._user_messages[m.id] = MessageInfo(from_user=user, trade=t)
                 m = await message.reply("✅ 已发送")
                 await asyncio.sleep(0.5)
@@ -757,6 +776,7 @@ class Bot(metaclass=Singleton):
                 .order_by(Trade.status, Trade.modified.desc())
             ).iterator()
         elif is_admin:
+
             def gen():
                 tids = []
                 for t in (
@@ -925,19 +945,25 @@ class Bot(metaclass=Singleton):
     async def on_exchange_coin(self, handler, client: Client, context: TC, parameters: dict, user: User):
         t = Trade.get_by_id(int(parameters["trade_id"]))
         if t.coins == 0 or t.revision:
-            await context.answer('⚠️ 不支持硬币购买.')
+            await context.answer("⚠️ 不支持硬币购买.")
             return
         check_msg = self.check_trade(t, user)
         if check_msg:
             return check_msg
         if user.coins < t.coins:
-            await context.answer('⚠️ 硬币不足.')
+            await context.answer("⚠️ 硬币不足.")
             return
         with db.atomic():
             user.coins -= t.coins
             t.user.coins += t.coins
-            await self.to_menu(client, context, '__exchange_submitted', trade_id=t.id, coins=t.coins, exchange=f'{t.coins} 硬币')
-        
+            await self.to_menu(
+                client,
+                context,
+                "__exchange_submitted",
+                trade_id=t.id,
+                coins=t.coins,
+                exchange=f"{t.coins} 硬币",
+            )
 
     @useroper()
     async def on_exchange_add_desc(self, handler, client: Client, context: TM, parameters: dict, user: User):
@@ -1088,7 +1114,7 @@ class Bot(metaclass=Singleton):
                 logger.debug(f"{user.name} 取消举报了 {t.user.name} 发起的交易.")
                 await context.answer("✅ 成功取消举报.")
         await self.to_menu(client, context, "trade_details")
-    
+
     @useroper("community")
     async def on_contact(self, handler, client: Client, context: TC, parameters: dict, user: User):
         t = Trade.get_by_id(int(parameters["trade_id"]))
@@ -1100,7 +1126,7 @@ class Bot(metaclass=Singleton):
             return
         self.set_conversation(user, context, ConversationStatus.CHATING, trade_id=parameters["trade_id"])
         return f"💬 接下来, 您可以向 __{user_spec(t.user)}__ 发送消息, 使用任意命令以结束."
-        
+
     @useroper("add_trade")
     async def on_new_trade_guide(self, handler, client: Client, context: TC, parameters: dict, user: User):
         if user.sanity < 60:
@@ -1751,7 +1777,9 @@ class Bot(metaclass=Singleton):
             log = Log.create(initiator=user, activity="check trade", details=str(t.id))
             log.participants.add(t.user)
             logger.debug(f'{user.name} 检查了交易 "{truncate_str(t.name, 20)}"')
-            await client.send_message(t.user.uid, f'📢 管理员通知: 您的交易 **{t.name}** 已被管理员审核上架.', parse_mode=ParseMode.MARKDOWN)
+            await client.send_message(
+                t.user.uid, f"📢 管理员通知: 您的交易 **{t.name}** 已被管理员审核上架.", parse_mode=ParseMode.MARKDOWN
+            )
             await context.answer("✅ 成功")
             await self.to_menu(client, context, "trade_details")
 
@@ -1768,7 +1796,11 @@ class Bot(metaclass=Singleton):
             log = Log.create(initiator=user, activity="set trade as violation", details=str(t.id))
             log.participants.add(t.user)
             logger.debug(f"{user.name} 认定了一个交易为违规.")
-            await client.send_message(t.user.uid, f'📢 管理员提醒: 您出售的 **{t.name}** 的因违规被管理员锁定, 您将被扣除一定信誉.', parse_mode=ParseMode.MARKDOWN)
+            await client.send_message(
+                t.user.uid,
+                f"📢 管理员提醒: 您出售的 **{t.name}** 的因违规被管理员锁定, 您将被扣除一定信誉.",
+                parse_mode=ParseMode.MARKDOWN,
+            )
             await context.answer("✅ 成功")
             await self.to_menu(client, context, "trade_details")
 
@@ -1858,11 +1890,26 @@ class Bot(metaclass=Singleton):
                 dr.user.coins += dr.influence / 2 * 100
                 dr.user.sanity = min(dr.user.sanity + dr.influence / 2, 100)
                 t.user.sanity = max(t.user.sanity - dr.influence * 2, 0)
-                await client.send_message(dr.user.uid, f'📢 管理员提醒: 您对 __{user_spec(t.user)}__ 出售 **{t.name}** 的违规举报被管理员审核通过, 您将被奖励一定的硬币和信誉.', parse_mode=ParseMode.MARKDOWN)
-                await client.send_message(t.user.uid, f'📢 管理员提醒: 您出售的 **{t.name}** 的因违规被管理员锁定, 您将被扣除一定信誉.', parse_mode=ParseMode.MARKDOWN)
+                await client.send_message(
+                    dr.user.uid,
+                    f"📢 管理员提醒: 您对 __{user_spec(t.user)}__ 出售 **{t.name}** 的违规举报被管理员审核通过, 您将被奖励一定的硬币和信誉.",
+                    parse_mode=ParseMode.MARKDOWN,
+                )
+                await client.send_message(
+                    t.user.uid,
+                    f"📢 管理员提醒: 您出售的 **{t.name}** 的因违规被管理员锁定, 您将被扣除一定信誉.",
+                    parse_mode=ParseMode.MARKDOWN,
+                )
             else:
                 t.status = TradeStatus.DISPUTED
-                e = Exchange.select().where(Exchange.status==ExchangeStatus.ACCEPTED).join(Trade).where(Trade.id==t.id).group_by(Exchange).get()
+                e = (
+                    Exchange.select()
+                    .where(Exchange.status == ExchangeStatus.ACCEPTED)
+                    .join(Trade)
+                    .where(Trade.id == t.id)
+                    .group_by(Exchange)
+                    .get()
+                )
                 if dr.type in (DisputeType.EXCHANGE_NO_GOOD, DisputeType.EXCHANGE_NOT_AS_DESCRIPTION):
                     reporter = t.user
                     reportee = e.user
@@ -1872,8 +1919,12 @@ class Bot(metaclass=Singleton):
                 reporter.coins += t.coins / 2
                 reportee.sanity = max(reportee.sanity - dr.influence - 10, 0)
                 reportee.coins -= t.coins / 2
-                await client.send_message(reporter.uid, f'📢 管理员提醒: 您对交易的违规举报被管理员审核通过, 您将被补偿一定的硬币.', parse_mode=ParseMode.MARKDOWN)
-                await client.send_message(reportee.uid, f'📢 管理员提醒: 您的交易存在违规被举报, 您将被扣除一定的信誉.', parse_mode=ParseMode.MARKDOWN)
+                await client.send_message(
+                    reporter.uid, f"📢 管理员提醒: 您对交易的违规举报被管理员审核通过, 您将被补偿一定的硬币.", parse_mode=ParseMode.MARKDOWN
+                )
+                await client.send_message(
+                    reportee.uid, f"📢 管理员提醒: 您的交易存在违规被举报, 您将被扣除一定的信誉.", parse_mode=ParseMode.MARKDOWN
+                )
             reporter.save()
             reportee.save()
             t.save()
@@ -1896,7 +1947,14 @@ class Bot(metaclass=Singleton):
                 msg = f"📢 管理员警告: 您对 __{user_spec(t.user)}__ 出售 **{t.name}** 的违规举报被管理员拒绝. 您已被扣除 {int(dr_sanity_old-dr.user.sanity)} 信誉. 请勿恶意举报."
                 await client.send_message(dr.user.uid, msg, parse_mode=ParseMode.MARKDOWN)
             else:
-                e = Exchange.select().where(Exchange.status==ExchangeStatus.ACCEPTED).join(Trade).where(Trade.id==t.id).group_by(Exchange).get()
+                e = (
+                    Exchange.select()
+                    .where(Exchange.status == ExchangeStatus.ACCEPTED)
+                    .join(Trade)
+                    .where(Trade.id == t.id)
+                    .group_by(Exchange)
+                    .get()
+                )
                 if dr.type in (DisputeType.EXCHANGE_NO_GOOD, DisputeType.EXCHANGE_NOT_AS_DESCRIPTION):
                     reportee = e.user
                 elif dr.type in (DisputeType.TRADE_NO_GOOD, DisputeType.TRADE_NOT_AS_DESCRIPTION):
@@ -2068,23 +2126,23 @@ class Bot(metaclass=Singleton):
     async def on_switch_contact(self, handler, client: Client, context: TC, parameters: dict, user: User):
         if user.chat:
             user.chat = False
-            await context.answer('✅ 将拒绝所有私聊.')
+            await context.answer("✅ 将拒绝所有私聊.")
         else:
             user.chat = True
-            await context.answer('✅ 允许与您私聊.')
+            await context.answer("✅ 允许与您私聊.")
         user.save()
-        await self.to_menu(client, context, 'user_me')
-        
+        await self.to_menu(client, context, "user_me")
+
     @useroper()
     async def on_switch_anonymous(self, handler, client: Client, context: TC, parameters: dict, user: User):
         if user.anonymous:
             user.anonymous = False
-            await context.answer('✅ 关闭匿名模式.')
+            await context.answer("✅ 关闭匿名模式.")
         else:
             user.anonymous = True
-            await context.answer('✅ 开启匿名模式.')
+            await context.answer("✅ 开启匿名模式.")
         user.save()
-        await self.to_menu(client, context, 'user_me')
+        await self.to_menu(client, context, "user_me")
 
     @useroper()
     async def content_trade_exchange_list(

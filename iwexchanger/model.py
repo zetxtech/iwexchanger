@@ -80,6 +80,7 @@ class User(BaseModel):
     chat = BooleanField(default=True)
     anonymous = BooleanField(default=False)
 
+
 class BlackList(BaseModel):
     id = AutoField()
     by = ForeignKeyField(User)
