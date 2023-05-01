@@ -1,0 +1,12 @@
+pyrogram
+toml
+typer
+loguru
+rich
+peewee
+appdirs
+pyrubrum-continued
+thefuzz[speedup]
+uvloop
+python-dateutil
+names
