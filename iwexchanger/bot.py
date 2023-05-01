@@ -746,7 +746,7 @@ class Bot(metaclass=Singleton):
             if len(cmds) == 2:
                 if cmds[1].startswith("__t_"):
                     return await self.to_menu(
-                        client, context, "trade", user_id=remove_prefix(cmds[1], "__t_")
+                        client, context, "trade_details", trade_id=remove_prefix(cmds[1], "__t_")
                     )
                 elif cmds[1].startswith("__u_"):
                     return await self.to_menu(client, context, "user", user_id=remove_prefix(cmds[1], "__u_"))
@@ -1287,6 +1287,8 @@ class Bot(metaclass=Singleton):
             msgs += [f"意向交换: {t.exchange}"]
         if t.available > datetime.now():
             msgs.append(f"可用时间: {t.available.strftime('%Y-%m-%d %H:%M:%S')}")
+        url = f't.me/{client.me.username}?start=__t_{t.id}'
+        msgs.append(f'复制[此处](url)交易链接以跳转到交易:\n`{url}`')
         msg = f"ℹ️ 您的交易 ({status})\n\n" + indent("\n".join(msgs), " " * 3)
         exchanges = (
             Exchange.select()
