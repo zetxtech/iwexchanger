@@ -209,7 +209,8 @@ class Bot(metaclass=Singleton):
         self.bot.add_handler(MessageHandler(self.text_handler))
         self.menu = ParameterizedHandler(self.tree, DictDatabase())
         self.menu.setup(self.bot)
-        message = await self.bot.send_photo(self.groupname, resources.path(image, "logo.png"))
+        with resources.path(image, "logo.png") as f:
+            message = await self.bot.send_photo(self.groupname, str(f))
         self._logo = message.photo.file_id
         await self.bot.set_bot_commands([BotCommand("start", "开始使用"), BotCommand("admin", "管理工具")])
         logger.info(f"已启动监听: {self.bot.me.username}.")

@@ -10,3 +10,4 @@ thefuzz[speedup]
 uvloop
 python-dateutil
 names
+tgcrypto
