@@ -16,14 +16,26 @@ from dateutil import parser
 from appdirs import user_data_dir
 from loguru import logger
 from pyrogram import Client, ContinuePropagation
-from pyrogram.handlers import MessageHandler
-from pyrogram.types import BotCommand, InputMediaPhoto, Message as TM, CallbackQuery as TC, User as TU
+from pyrogram.handlers import MessageHandler, InlineQueryHandler
+from pyrogram.types import (
+    BotCommand,
+    InputMediaPhoto,
+    InlineQueryResultArticle,
+    InputTextMessageContent,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+    Message as TM,
+    CallbackQuery as TC,
+    User as TU,
+    InlineQuery as TI,
+)
 from pyrogram.enums import ParseMode, ChatType
 from pyrogram.errors import BadRequest
 from pyrubrum import (
     DictDatabase,
     Element,
     Menu,
+    LinkMenu,
     PageMenu,
     ContentPageMenu,
     MenuStyle,
@@ -92,6 +104,7 @@ def name(self: TU):
 setattr(TU, "name", property(name))
 
 fake = {}
+
 
 def user_has_field(user: User, field: str):
     for ur in user.restrictions.where(Restriction.to > datetime.now()):
@@ -206,6 +219,7 @@ class Bot(metaclass=Singleton):
 
     async def setup(self):
         self.bot.add_handler(MessageHandler(self.text_handler))
+        self.bot.add_handler(InlineQueryHandler(self.inline_handler))
         self.menu = ParameterizedHandler(self.tree, DictDatabase())
         self.menu.setup(self.bot)
         with resources.path(image, "logo.png") as f:
@@ -231,7 +245,7 @@ class Bot(metaclass=Singleton):
             Conversation(context, status, params) if status else None
         )
 
-    async def to_menu(self, client: Client, context: Union[TC, TM]=None, menu_id="start", uid=None, **kw):
+    async def to_menu(self, client: Client, context: Union[TC, TM] = None, menu_id="start", uid=None, **kw):
         if not context:
             if not uid:
                 raise ValueError("uid must be provided for context constructing")
@@ -435,6 +449,7 @@ class Bot(metaclass=Singleton):
                     DMenu("▶️ 上架下架", "launch", self.on_launch): None,
                     DMenu("🚮 删除交易", "delete", self.on_delete): None,
                     DMenu("🔄 编辑交易", "modify", self.on_modify): None,
+                    DMenu("🔗 分享交易", "share", self.on_share): None,
                     ContentPageMenu(
                         "📩 交换请求",
                         "trade_exchange_list",
@@ -736,6 +751,61 @@ class Bot(metaclass=Singleton):
                     msg += f"\n🔄 当前密文内容请点击查看:\n\n||{t.good}||"
                 await message.reply(msg)
 
+    async def inline_handler(self, client: Client, inline_query: TI):
+        try:
+            query = int(inline_query.query)
+        except ValueError:
+            await inline_query.answer(
+                results=[
+                    InlineQueryResultArticle(
+                        title=f"需要输入交易编号",
+                        description=f"请通过 @{client.me.username} 分享海报",
+                    ),
+                ],
+                cache_time=1,
+            )
+            return
+        t = Trade.get_or_none(id=query)
+        if not t:
+            await inline_query.answer(
+                results=[
+                    InlineQueryResultArticle(
+                        title=f"未找到该交易",
+                        description=f"请通过 @{client.me.username} 分享海报",
+                    ),
+                ],
+                cache_time=1,
+            )
+            return
+        tu = user_spec(t.user)
+        td = f"🛍️ __{tu}__ 正在请求以物易物:\n\n"
+        tlu = f"t.me/{client.me.username}"
+        tl = f"{tlu}?start=__t_{t.id}"
+        if len(t.name) < 10:
+            td += f"他拥有: **{t.name}**\n"
+        else:
+            td += f"他拥有:\n**{t.name}**\n\n"
+        td += f"他希望换取: **{t.exchange}**\n\n👇 点击下方按钮以进行交换"
+        await inline_query.answer(
+            results=[
+                InlineQueryResultArticle(
+                    title=f"{tu} 发起的交易",
+                    input_message_content=InputTextMessageContent(td),
+                    description=f"{truncate_str(t.name, 10)} => {truncate_str(t.exchange, 10)}",
+                    reply_markup=InlineKeyboardMarkup(
+                        [
+                            [
+                                InlineKeyboardButton("查看详情", url=tl),
+                                InlineKeyboardButton("交易大厅", url=tlu),
+                            ]
+                        ]
+                    ),
+                ),
+            ],
+            cache_time=1,
+        )
+            
+
     @useroper()
     async def on_start(self, handler, client: Client, context: Union[TM, TC], parameters: dict, user: User):
         if isinstance(context, TM):
@@ -908,7 +978,10 @@ class Bot(metaclass=Singleton):
             parameters["media_changed"] = True
             return InputMediaPhoto(media=t.photo, caption=msg, parse_mode=ParseMode.MARKDOWN)
         else:
-            return msg
+            if parameters.get('from_link', False):
+                return InputMediaPhoto(media=self._logo, caption=msg)
+            else:
+                return msg
 
     async def header_trade_list(self, handler, client: Client, context: TM, parameters):
         menu = handler["trade_list"]
@@ -1200,7 +1273,7 @@ class Bot(metaclass=Singleton):
                 )
                 Log.create(initiator=user, activity="add a trade", details=str(t.id))
         with db.atomic():
-            if self.trade_requires_check(t):
+            if (not user_has_field(user, 'admin_trade')) and self.trade_requires_check(t):
                 t.status = TradeStatus.CHECKING
                 t.save()
                 Log.create(initiator=user, activity="launch a trade", details="requires checking")
@@ -1215,7 +1288,9 @@ class Bot(metaclass=Singleton):
         await client.send_message(user.uid, msg)
 
     @useroper()
-    async def on_trade_details(self, handler, client: Client, context: Union[TC, TM], parameters: dict, user: User):
+    async def on_trade_details(
+        self, handler, client: Client, context: Union[TC, TM], parameters: dict, user: User
+    ):
         tid = int(parameters["trade_details_id"])
         if parameters.pop("media_changed", False):
             await context.edit_message_media(InputMediaPhoto(self._logo))
@@ -1285,9 +1360,6 @@ class Bot(metaclass=Singleton):
         if t.available > datetime.now():
             msgs.append(f"可用时间: {t.available.strftime('%Y-%m-%d %H:%M:%S')}")
         msg = f"ℹ️ 您的交易 ({status})\n\n" + indent("\n".join(msgs), " " * 3)
-        if not parameters.get('from_link', False):
-            url = f't.me/{client.me.username}?start=__t_{t.id}'
-            msg += f'\n\n🔗 复制此处[链接]({url})以跳转到交易:\n`{url}`'
         exchanges = (
             Exchange.select()
             .where(Exchange.status == ExchangeStatus.LAUNCHED)
@@ -1305,7 +1377,10 @@ class Bot(metaclass=Singleton):
             parameters["media_changed"] = True
             return InputMediaPhoto(media=t.photo, caption=msg)
         else:
-            return msg
+            if parameters.get('from_link', False):
+                return InputMediaPhoto(media=self._logo, caption=msg)
+            else:
+                return msg
 
     def trade_requires_check(self, trade):
         if trade.photo:
@@ -1317,6 +1392,35 @@ class Bot(metaclass=Singleton):
             return True
         if trade.user.sanity < 90:
             return True
+
+    @useroper()
+    async def on_share(self, handler, client: Client, context: TC, parameters: dict, user: User):
+        t = Trade.get_by_id(int(parameters["trade_id"]))
+        tu = user_spec(t.user)
+        td = f"🌈以下是将被分享的商品海报:\n\n🛍️ __{tu}__ 正在请求以物易物:\n\n"
+        tl = f"t.me/{client.me.username}?start=__t_{t.id}"
+        tlu = f"tg://user?id={client.me.username}"
+        if len(t.name) < 10:
+            td += f"他拥有: **{t.name}**\n"
+        else:
+            td += f"他拥有:\n**{t.name}**\n\n"
+        td += f"他希望换取: **{t.exchange}**\n\n👇 点击下方按钮以进行交换"
+        await client.send_message(
+            user.uid,
+            td,
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton("查看详情", url=tl),
+                        InlineKeyboardButton("交易大厅", url=tlu),
+                    ],
+                    [
+                        InlineKeyboardButton("确认并分享到聊天", switch_inline_query=str(t.id))
+                    ]
+                ]
+            ),
+        )
+        await context.answer()
 
     @useroper()
     async def on_launch(self, handler, client: Client, context: TC, parameters: dict, user: User):
@@ -1339,7 +1443,7 @@ class Bot(metaclass=Singleton):
                 await context.answer("⚠️ 不能上架超过 5 个交易.")
                 return
             with db.atomic():
-                if self.trade_requires_check(t):
+                if (not user_has_field(user, 'admin_trade')) and self.trade_requires_check(t):
                     t.status = TradeStatus.CHECKING
                     Log.create(initiator=user, activity="launch a trade", details="requires checking")
                     logger.debug(f'{user.name} 提交了一个出售 "{t.name}" 的交易待检查.')
