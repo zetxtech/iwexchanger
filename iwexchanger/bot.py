@@ -775,7 +775,10 @@ class Bot(metaclass=Singleton):
             td += f"他拥有: **{t.name}**\n"
         else:
             td += f"他拥有:\n**{t.name}**\n\n"
-        td += f"他希望换取: **{t.exchange}**\n\n👇 点击下方按钮以进行交换"
+        td += f"他希望换取: **{t.exchange}**"
+        if t.coins and not t.revision:
+            td += f"\n您也可以花费 {t.coins} 硬币购买"
+        td += "\n\n👇 点击下方按钮以进行交换"
         await inline_query.answer(
             results=[
                 InlineQueryResultArticle(
