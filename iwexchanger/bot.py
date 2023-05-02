@@ -754,33 +754,24 @@ class Bot(metaclass=Singleton):
     async def inline_handler(self, client: Client, inline_query: TI):
         try:
             query = int(inline_query.query)
+            t = Trade.get_or_none(id=query)
+            if not t:
+                raise ValueError
+            if not int(t.user.uid) == inline_query.from_user.id:
+                raise ValueError
         except ValueError:
             await inline_query.answer(
-                results=[
-                    InlineQueryResultArticle(
-                        title=f"需要输入交易编号",
-                        description=f"请通过 @{client.me.username} 分享海报",
-                    ),
-                ],
-                cache_time=1,
-            )
-            return
-        t = Trade.get_or_none(id=query)
-        if not t:
-            await inline_query.answer(
-                results=[
-                    InlineQueryResultArticle(
-                        title=f"未找到该交易",
-                        description=f"请通过 @{client.me.username} 分享海报",
-                    ),
-                ],
-                cache_time=1,
+                results=[],
+                cache_time=10,
+                is_personal=True,
+                switch_pm_text='从易物交易大厅分享交易',
+                switch_pm_parameter=''
             )
             return
         tu = user_spec(t.user)
         td = f"🛍️ __{tu}__ 正在请求以物易物:\n\n"
+        tl = f"t.me/{client.me.username}?start=__t_{t.id}"
         tlu = f"t.me/{client.me.username}"
-        tl = f"{tlu}?start=__t_{t.id}"
         if len(t.name) < 10:
             td += f"他拥有: **{t.name}**\n"
         else:
@@ -802,9 +793,9 @@ class Bot(metaclass=Singleton):
                     ),
                 ),
             ],
-            cache_time=1,
+            cache_time=10,
+            is_personal=True,
         )
-            
 
     @useroper()
     async def on_start(self, handler, client: Client, context: Union[TM, TC], parameters: dict, user: User):
@@ -978,7 +969,7 @@ class Bot(metaclass=Singleton):
             parameters["media_changed"] = True
             return InputMediaPhoto(media=t.photo, caption=msg, parse_mode=ParseMode.MARKDOWN)
         else:
-            if parameters.get('from_link', False):
+            if parameters.get("from_link", False):
                 return InputMediaPhoto(media=self._logo, caption=msg)
             else:
                 return msg
@@ -1273,7 +1264,7 @@ class Bot(metaclass=Singleton):
                 )
                 Log.create(initiator=user, activity="add a trade", details=str(t.id))
         with db.atomic():
-            if (not user_has_field(user, 'admin_trade')) and self.trade_requires_check(t):
+            if (not user_has_field(user, "admin_trade")) and self.trade_requires_check(t):
                 t.status = TradeStatus.CHECKING
                 t.save()
                 Log.create(initiator=user, activity="launch a trade", details="requires checking")
@@ -1301,11 +1292,17 @@ class Bot(metaclass=Singleton):
             return "⚠️ 没有找到该交易!"
 
         if t.user.id == user.id:
-            await self.to_menu(client, context, "__trade_mine", trade_id=t.id, from_link=isinstance(context, TM))
+            await self.to_menu(
+                client, context, "__trade_mine", trade_id=t.id, from_link=isinstance(context, TM)
+            )
         elif user_has_field(user, "admin_trade"):
-            await self.to_menu(client, context, "__trade_admin", trade_id=t.id, from_link=isinstance(context, TM))
+            await self.to_menu(
+                client, context, "__trade_admin", trade_id=t.id, from_link=isinstance(context, TM)
+            )
         else:
-            await self.to_menu(client, context, "__trade_public", trade_id=t.id, from_link=isinstance(context, TM))
+            await self.to_menu(
+                client, context, "__trade_public", trade_id=t.id, from_link=isinstance(context, TM)
+            )
 
     @useroper()
     async def on_trade_list_switch(self, handler, client: Client, context: TC, parameters: dict, user: User):
@@ -1377,7 +1374,7 @@ class Bot(metaclass=Singleton):
             parameters["media_changed"] = True
             return InputMediaPhoto(media=t.photo, caption=msg)
         else:
-            if parameters.get('from_link', False):
+            if parameters.get("from_link", False):
                 return InputMediaPhoto(media=self._logo, caption=msg)
             else:
                 return msg
@@ -1399,7 +1396,7 @@ class Bot(metaclass=Singleton):
         tu = user_spec(t.user)
         td = f"🌈以下是将被分享的商品海报:\n\n🛍️ __{tu}__ 正在请求以物易物:\n\n"
         tl = f"t.me/{client.me.username}?start=__t_{t.id}"
-        tlu = f"tg://user?id={client.me.username}"
+        tlu = f"t.me/{client.me.username}"
         if len(t.name) < 10:
             td += f"他拥有: **{t.name}**\n"
         else:
@@ -1414,9 +1411,7 @@ class Bot(metaclass=Singleton):
                         InlineKeyboardButton("查看详情", url=tl),
                         InlineKeyboardButton("交易大厅", url=tlu),
                     ],
-                    [
-                        InlineKeyboardButton("确认并分享到聊天", switch_inline_query=str(t.id))
-                    ]
+                    [InlineKeyboardButton("确认并分享到聊天", switch_inline_query=str(t.id))],
                 ]
             ),
         )
@@ -1443,7 +1438,7 @@ class Bot(metaclass=Singleton):
                 await context.answer("⚠️ 不能上架超过 5 个交易.")
                 return
             with db.atomic():
-                if (not user_has_field(user, 'admin_trade')) and self.trade_requires_check(t):
+                if (not user_has_field(user, "admin_trade")) and self.trade_requires_check(t):
                     t.status = TradeStatus.CHECKING
                     Log.create(initiator=user, activity="launch a trade", details="requires checking")
                     logger.debug(f'{user.name} 提交了一个出售 "{t.name}" 的交易待检查.')
