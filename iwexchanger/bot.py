@@ -775,10 +775,7 @@ class Bot(metaclass=Singleton):
             td += f"他拥有: **{t.name}**\n"
         else:
             td += f"他拥有:\n**{t.name}**\n\n"
-        td += f"他希望换取: **{t.exchange}**"
-        if t.coins and not t.revision:
-            td += f"\n您也可以花费 {t.coins} 硬币购买"
-        td += "\n\n👇 点击下方按钮以进行交换"
+        td += f"他希望换取: **{t.exchange}**\n\n👇 点击下方按钮以进行交换"
         await inline_query.answer(
             results=[
                 InlineQueryResultArticle(
@@ -945,7 +942,11 @@ class Bot(metaclass=Singleton):
         msg += f"**{t.name}**"
         if t.description:
             msg += f"\n{t.description}"
-        msg += f"\n\n他希望通过以下物品进行交换:\n**{t.exchange}**\n\n"
+        msg += f"\n\n他希望通过以下物品进行交换:\n**{t.exchange}**"
+        if t.coins and not t.revision:
+            msg += f"\n您也可以花费 {t.coins} 硬币购买\n\n"
+        else:
+            msg += "\n\n"
         msg += f"交易发起日期: {t.created.strftime('%Y-%m-%d')}\n"
         disputes = Dispute.select().join(Trade).where(Trade.id == t.id).count()
         if disputes:
