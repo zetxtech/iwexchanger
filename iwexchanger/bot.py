@@ -231,7 +231,7 @@ class Bot(metaclass=Singleton):
             Conversation(context, status, params) if status else None
         )
 
-    async def to_menu(self, client: Client, context=None, menu_id="start", uid=None, **kw):
+    async def to_menu(self, client: Client, context: Union[TC, TM]=None, menu_id="start", uid=None, **kw):
         if not context:
             if not uid:
                 raise ValueError("uid must be provided for context constructing")
@@ -1215,7 +1215,7 @@ class Bot(metaclass=Singleton):
         await client.send_message(user.uid, msg)
 
     @useroper()
-    async def on_trade_details(self, handler, client: Client, context: TC, parameters: dict, user: User):
+    async def on_trade_details(self, handler, client: Client, context: Union[TC, TM], parameters: dict, user: User):
         tid = int(parameters["trade_details_id"])
         if parameters.pop("media_changed", False):
             await context.edit_message_media(InputMediaPhoto(self._logo))
@@ -1224,15 +1224,13 @@ class Bot(metaclass=Singleton):
         t = Trade.get_or_none(id=tid)
         if not t:
             return "⚠️ 没有找到该交易!"
-        else:
-            parameters["trade_id"] = t.id
 
         if t.user.id == user.id:
-            await self.to_menu(client, context, "__trade_mine")
+            await self.to_menu(client, context, "__trade_mine", trade_id=t.id, from_link=isinstance(context, TM))
         elif user_has_field(user, "admin_trade"):
-            await self.to_menu(client, context, "__trade_admin")
+            await self.to_menu(client, context, "__trade_admin", trade_id=t.id, from_link=isinstance(context, TM))
         else:
-            await self.to_menu(client, context, "__trade_public")
+            await self.to_menu(client, context, "__trade_public", trade_id=t.id, from_link=isinstance(context, TM))
 
     @useroper()
     async def on_trade_list_switch(self, handler, client: Client, context: TC, parameters: dict, user: User):
@@ -1287,8 +1285,9 @@ class Bot(metaclass=Singleton):
         if t.available > datetime.now():
             msgs.append(f"可用时间: {t.available.strftime('%Y-%m-%d %H:%M:%S')}")
         msg = f"ℹ️ 您的交易 ({status})\n\n" + indent("\n".join(msgs), " " * 3)
-        url = f't.me/{client.me.username}?start=__t_{t.id}'
-        msg += f'\n\n🔗 复制此处[链接]({url})以跳转到交易:\n`{url}`'
+        if not parameters.get('from_link', False):
+            url = f't.me/{client.me.username}?start=__t_{t.id}'
+            msg += f'\n\n🔗 复制此处[链接]({url})以跳转到交易:\n`{url}`'
         exchanges = (
             Exchange.select()
             .where(Exchange.status == ExchangeStatus.LAUNCHED)
