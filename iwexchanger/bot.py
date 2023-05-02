@@ -823,8 +823,10 @@ class Bot(metaclass=Singleton):
         self, handler, client: Client, context: Union[TM, TC], parameters: dict, user: User
     ):
         self.set_conversation(user, context, ConversationStatus.WAITING_SEARCH_TRADE)
-        if parameters.pop("media_changed", False):
-            await context.edit_message_media(InputMediaPhoto(self._logo))
+        if isinstance(context, TM):
+            await context.edit_media(InputMediaPhoto(self._logo))
+        elif isinstance(context, TC):
+            await context.edit_message_media((InputMediaPhoto(self._logo)))
         is_admin = user_has_field(user, "admin_trade")
         mine = parameters.get("mine", False)
         if mine:
@@ -972,7 +974,6 @@ class Bot(metaclass=Singleton):
                 msg += f"\n\n**👑 管理员事务: 该交易需要检查**\n"
 
         if t.photo:
-            parameters["media_changed"] = True
             return InputMediaPhoto(media=t.photo, caption=msg, parse_mode=ParseMode.MARKDOWN)
         else:
             if parameters.get("from_link", False):
@@ -1289,8 +1290,10 @@ class Bot(metaclass=Singleton):
         self, handler, client: Client, context: Union[TC, TM], parameters: dict, user: User
     ):
         tid = int(parameters["trade_details_id"])
-        if parameters.pop("media_changed", False):
-            await context.edit_message_media(InputMediaPhoto(self._logo))
+        if isinstance(context, TM):
+            await context.edit_media(InputMediaPhoto(self._logo))
+        elif isinstance(context, TC):
+            await context.edit_message_media((InputMediaPhoto(self._logo)))
         if not tid:
             return "⚠️ 无效交易!"
         t = Trade.get_or_none(id=tid)
@@ -1377,7 +1380,6 @@ class Bot(metaclass=Singleton):
                     msg += f": {truncate_str(e.description, 15)}"
                 msg += "\n"
         if t.photo:
-            parameters["media_changed"] = True
             return InputMediaPhoto(media=t.photo, caption=msg)
         else:
             if parameters.get("from_link", False):
@@ -1914,7 +1916,10 @@ class Bot(metaclass=Singleton):
     async def content_report_admin(
         self, handler, client: Client, context: Union[TC, TM], parameters: dict, user: User
     ):
-        await context.edit_message_media(InputMediaPhoto(self._logo))
+        if isinstance(context, TM):
+            await context.edit_media(InputMediaPhoto(self._logo))
+        elif isinstance(context, TC):
+            await context.edit_message_media((InputMediaPhoto(self._logo)))
         t = Trade.get_by_id(int(parameters["trade_id"]))
         if t.status >= TradeStatus.DISPUTED:
             try:
@@ -1981,7 +1986,6 @@ class Bot(metaclass=Singleton):
         else:
             msg = "⚠️ 交易已关闭."
         if dr.photo:
-            parameters["media_changed"] = True
             return InputMediaPhoto(media=dr.photo, caption=msg)
         else:
             return msg
