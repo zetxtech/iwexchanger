@@ -765,7 +765,7 @@ class Bot(metaclass=Singleton):
                 cache_time=10,
                 is_personal=True,
                 switch_pm_text='从易物交易大厅分享交易',
-                switch_pm_parameter=''
+                switch_pm_parameter='inline'
             )
             return
         tu = user_spec(t.user)
