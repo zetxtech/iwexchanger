@@ -823,9 +823,7 @@ class Bot(metaclass=Singleton):
         self, handler, client: Client, context: Union[TM, TC], parameters: dict, user: User
     ):
         self.set_conversation(user, context, ConversationStatus.WAITING_SEARCH_TRADE)
-        if isinstance(context, TM):
-            await context.edit_media(InputMediaPhoto(self._logo))
-        elif isinstance(context, TC):
+        if isinstance(context, TC):
             await context.edit_message_media((InputMediaPhoto(self._logo)))
         is_admin = user_has_field(user, "admin_trade")
         mine = parameters.get("mine", False)
@@ -1290,9 +1288,7 @@ class Bot(metaclass=Singleton):
         self, handler, client: Client, context: Union[TC, TM], parameters: dict, user: User
     ):
         tid = int(parameters["trade_details_id"])
-        if isinstance(context, TM):
-            await context.edit_media(InputMediaPhoto(self._logo))
-        elif isinstance(context, TC):
+        if isinstance(context, TC):
             await context.edit_message_media((InputMediaPhoto(self._logo)))
         if not tid:
             return "⚠️ 无效交易!"
@@ -1916,9 +1912,7 @@ class Bot(metaclass=Singleton):
     async def content_report_admin(
         self, handler, client: Client, context: Union[TC, TM], parameters: dict, user: User
     ):
-        if isinstance(context, TM):
-            await context.edit_media(InputMediaPhoto(self._logo))
-        elif isinstance(context, TC):
+        if isinstance(context, TC):
             await context.edit_message_media((InputMediaPhoto(self._logo)))
         t = Trade.get_by_id(int(parameters["trade_id"]))
         if t.status >= TradeStatus.DISPUTED:
