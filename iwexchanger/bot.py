@@ -720,7 +720,7 @@ class Bot(metaclass=Singleton):
                 if len(tids) > 1:
                     return await self.to_menu(client, message, "trade_list", trade_ids=tids)
                 elif len(tids) == 1:
-                    return await self.to_menu(client, message, "trade_details", trade_id=tids[0])
+                    return await self.to_menu(client, message, "trade_details", trade_details_id=tids[0])
                 else:
                     await message.reply("⚠️ 未找到该交易.")
             elif conv.status == ConversationStatus.CHATING:
@@ -1466,7 +1466,7 @@ class Bot(metaclass=Singleton):
         if t.deleted:
             await context.answer("⚠️ 交易已经被删除.")
             return
-        if t.status < TradeStatus.DISPUTED:
+        if t.status >= TradeStatus.DISPUTED:
             await context.answer("⚠️ 无法删除争议交易.")
             return
         if Dispute.select().join(Trade).where(Trade.id == t.id).count():
