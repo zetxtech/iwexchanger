@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from importlib import resources
 
 import names
+from Crypto.Cipher import AES
 from thefuzz import process, fuzz
 from dateutil import parser
 from appdirs import user_data_dir
@@ -92,7 +93,8 @@ def name(self: TU):
 setattr(TU, "name", property(name))
 
 fake = {}
-
+cipher = AES.new('exchanger-secret')
+pad = lambda s: s + (16-len(s) % 16) * chr(16 - len(s) % 16)
 
 def user_has_field(user: User, field: str):
     for ur in user.restrictions.where(Restriction.to > datetime.now()):
@@ -746,7 +748,7 @@ class Bot(metaclass=Singleton):
             if len(cmds) == 2:
                 if cmds[1].startswith("__t_"):
                     return await self.to_menu(
-                        client, context, "trade_details", trade_details_id=remove_prefix(cmds[1], "__t_")
+                        client, context, "trade_details", trade_details_id=cipher.decrypt(remove_prefix(cmds[1], "__t_"))
                     )
                 elif cmds[1].startswith("__u_"):
                     return await self.to_menu(client, context, "user", user_id=remove_prefix(cmds[1], "__u_"))
@@ -1287,9 +1289,9 @@ class Bot(metaclass=Singleton):
             msgs += [f"意向交换: {t.exchange}"]
         if t.available > datetime.now():
             msgs.append(f"可用时间: {t.available.strftime('%Y-%m-%d %H:%M:%S')}")
-        url = f't.me/{client.me.username}?start=__t_{t.id}'
-        msgs.append(f'复制[此处](url)交易链接以跳转到交易:\n`{url}`')
         msg = f"ℹ️ 您的交易 ({status})\n\n" + indent("\n".join(msgs), " " * 3)
+        url = f't.me/{client.me.username}?start=__t_{cipher.encrypt(str(t.id))}'
+        msg += f'\n\n🔗 复制此处[链接]({url})以跳转到交易:\n`{url}`'
         exchanges = (
             Exchange.select()
             .where(Exchange.status == ExchangeStatus.LAUNCHED)

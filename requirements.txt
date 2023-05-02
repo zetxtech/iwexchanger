@@ -11,3 +11,4 @@ uvloop
 python-dateutil
 names
 tgcrypto
+pycryptodome
