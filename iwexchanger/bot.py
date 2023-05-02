@@ -746,7 +746,7 @@ class Bot(metaclass=Singleton):
             if len(cmds) == 2:
                 if cmds[1].startswith("__t_"):
                     return await self.to_menu(
-                        client, context, "trade_details", trade_id=remove_prefix(cmds[1], "__t_")
+                        client, context, "trade_details", trade_details_id=remove_prefix(cmds[1], "__t_")
                     )
                 elif cmds[1].startswith("__u_"):
                     return await self.to_menu(client, context, "user", user_id=remove_prefix(cmds[1], "__u_"))
