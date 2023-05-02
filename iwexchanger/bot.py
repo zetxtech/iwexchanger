@@ -714,12 +714,11 @@ class Bot(metaclass=Singleton):
                     level_field_add_id=fr.id,
                 )
             elif conv.status == ConversationStatus.WAITING_SEARCH_TRADE:
-                tns = {t.id: t.name for t in Trade.select().iterator()}
-                tns.update({t.id: t.exchange for t in Trade.select().iterator()})
+                tns = {t.id: f'{t.name} {t.exchange}' for t in Trade.select().iterator()}
                 results = process.extract(message.text, tns, limit=30, scorer=fuzz.partial_ratio)
                 tids = [tid for _, score, tid in results if score > 50]
                 if len(tids) > 1:
-                    return await self.to_menu(client, message, "trade_list", trade_ids=uids)
+                    return await self.to_menu(client, message, "trade_list", trade_ids=tids)
                 elif len(tids) == 1:
                     return await self.to_menu(client, message, "trade_details", trade_id=tids[0])
                 else:
