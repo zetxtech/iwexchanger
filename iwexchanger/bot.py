@@ -719,9 +719,9 @@ class Bot(metaclass=Singleton):
                 results = process.extract(message.text, tns, limit=30, scorer=fuzz.partial_ratio)
                 tids = [tid for _, score, tid in results if score > 50]
                 if len(tids) > 1:
-                    return await self.to_menu(client, message, "trade_list", user_ids=uids)
+                    return await self.to_menu(client, message, "trade_list", trade_ids=uids)
                 elif len(tids) == 1:
-                    return await self.to_menu(client, message, "trade_details", user_id=uids[0])
+                    return await self.to_menu(client, message, "trade_details", trade_id=tids[0])
                 else:
                     await message.reply("⚠️ 未找到该交易.")
             elif conv.status == ConversationStatus.CHATING:
@@ -882,7 +882,10 @@ class Bot(metaclass=Singleton):
             TradeStatus.VIOLATION: "🚫",
         }
         need_admin = True
+        only_list = parameters.get('trade_ids', None)
         for i, t in enumerate(ts):
+            if only_list and t.id not in only_list:
+                continue
             if mine or is_admin:
                 spec = f"{icons[t.status]} `{i+1}`"
             else:
