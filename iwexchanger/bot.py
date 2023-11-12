@@ -394,7 +394,8 @@ class Bot(metaclass=Singleton):
                         "🚔 您认为对方的物品存在以下哪种问题?",
                         [Element("未收到货", "no_good"), Element("货不对板", "not_as_description")],
                         **ps(limit=2, limit_items=2),
-                    ): {DMenu("接收问题", "report_after_trade_problem", self.on_trade_report)}
+                    ): {DMenu("接收问题", "report_after_trade_problem", self.on_trade_report)},
+                    DMenu("💬 在线咨询", "contact_after_trade", self.on_contact): None,
                 },
                 DMenu("增加描述", "__exchange_add_desc", self.on_exchange_add_desc): {
                     DDMenu("不添加", "exchange_no_desc", self.on_exchange_no_desc)
@@ -651,13 +652,13 @@ class Bot(metaclass=Singleton):
                     )
             elif conv.status == ConversationStatus.WAITING_TRADE_START_TIME:
                 try:
-                    trade_start_time = parser.parse()
+                    trade_start_time = parser.parse(message.text)
                 except parser.ParserError:
                     await message.reply("⚠️ 输入错误, 请重新输入.")
                     await self.to_menu(client, message, "__trade_set_start_time", **conv.params)
                 else:
                     await self.to_menu(
-                        client, message, "__trade_set_revision", trade_start_time=trade_start_time, **params
+                        client, message, "__trade_set_revision", trade_start_time=trade_start_time, **conv.params
                     )
             elif conv.status == ConversationStatus.WAITING_USER:
                 user_id = message.text
