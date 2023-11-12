@@ -587,7 +587,7 @@ class Bot(metaclass=Singleton):
                 self.set_conversation(
                     user, conv.context, ConversationStatus.WAITING_EXCHANGE_FOR, trade_good=message.text
                 )
-                msg = "👉🏼 请输入你需要的物品名称 (尽可能简短):"
+                msg = "👉🏼 请输入你**需要**的物品名称 (尽可能简短):"
                 if conv.params.get("trade_modify", False):
                     t = Trade.get_by_id(int(conv.params["trade_id"]))
                     msg += f"\n🔄 (当前: `{t.exchange}`)"
@@ -650,12 +650,11 @@ class Bot(metaclass=Singleton):
                         client, message, "__trade_set_start_time", trade_coins=coins, **conv.params
                     )
             elif conv.status == ConversationStatus.WAITING_TRADE_START_TIME:
-                params = {k: v for k, v in conv.context.parameters.items() if k.startswith("trade_")}
                 try:
                     trade_start_time = parser.parse()
                 except parser.ParserError:
                     await message.reply("⚠️ 输入错误, 请重新输入.")
-                    await self.to_menu(client, message, "__trade_set_start_time", **params)
+                    await self.to_menu(client, message, "__trade_set_start_time", **conv.params)
                 else:
                     await self.to_menu(
                         client, message, "__trade_set_revision", trade_start_time=trade_start_time, **params
@@ -744,7 +743,7 @@ class Bot(metaclass=Singleton):
                     ConversationStatus.WAITING_TRADE_GOOD,
                     trade_photo=message.photo.file_id,
                 )
-                msg = "👉🏼 请输入你的物品内容 (例如密钥等, 暂不支持图片):"
+                msg = "👉🏼 请输入你的物品**内容** (例如密钥等, 暂不支持图片):"
                 if conv.params.get("trade_modify", False):
                     t = Trade.get_by_id(int(conv.params["trade_id"]))
                     msg += f"\n🔄 当前密文内容请点击查看:\n\n||{t.good}||"
@@ -1110,6 +1109,8 @@ class Bot(metaclass=Singleton):
         self, handler, client: Client, context: Union[TC, TM], parameters: dict, user: User
     ):
         t = Trade.get_by_id(int(parameters["trade_id"]))
+        if t.status != TradeStatus.LAUNCHED:
+            return "⚠️ 该交易不再可用."
         exchange = parameters["exchange"]
         description = parameters.get("exchange_desc", None)
         coins = parameters.get("coins", 0)
@@ -1227,10 +1228,11 @@ class Bot(metaclass=Singleton):
     async def on_new_trade(self, handler, client: Client, context: TC, parameters: dict, user: User):
         params = {k: v for k, v in parameters.items() if k.startswith("trade_")}
         self.set_conversation(user, context, ConversationStatus.WAITING_TRADE_NAME, params=params)
-        msg = "👉🏼 请输入您可供交换的物品名称 (尽可能简短):"
+        msg = "👉🏼 请输入您**可供交换的物品**名称 (尽可能简短):"
         if parameters.get("trade_modify", False):
             t = Trade.get_by_id(int(parameters["trade_id"]))
             msg += f"\n🔄 (当前: `{t.name}`)"
+        await context.answer()
         await client.send_message(user.uid, msg)
 
     @useroper("add_trade")

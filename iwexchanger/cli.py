@@ -58,7 +58,7 @@ def main(
         proxy.setdefault("hostname", "127.0.0.1")
         proxy.setdefault("port", "1080")
 
-    db_path = Path(config.get("db", "{data}/embykeeper.db").format(data=user_data_dir(__name__)))
+    db_path = Path(config.get("db", "{data}/iwexchanger.db").format(data=user_data_dir(__name__)))
     db_path.parent.mkdir(parents=True, exist_ok=True)
     if not db_path.exists():
         models = []

@@ -17,10 +17,10 @@ clean-pyc: ## remove Python file artifacts
 	find . -name '__pycache__' -exec rm -fr {} +
 
 lint/black: ## check style with black
-	black --check embykeeper
+	black --check iwexchanger
 
 lint/flake8: ## check style with flake8
-	flake8 embykeeper
+	flake8 iwexchanger
 
 lint: lint/black lint/flake8 ## check style
 
