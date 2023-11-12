@@ -658,7 +658,7 @@ class Bot(metaclass=Singleton):
                     await self.to_menu(client, message, "__trade_set_start_time", **conv.params)
                 else:
                     await self.to_menu(
-                        client, message, "__trade_set_revision", trade_start_time=trade_start_time, **conv.params
+                        client, message, "__trade_set_revision", trade_start_time=trade_start_time.timestamp(), **conv.params
                     )
             elif conv.status == ConversationStatus.WAITING_USER:
                 user_id = message.text
@@ -1013,6 +1013,9 @@ class Bot(metaclass=Singleton):
     @useroper("exchange")
     async def on_exchange_coin(self, handler, client: Client, context: TC, parameters: dict, user: User):
         t = Trade.get_by_id(int(parameters["trade_id"]))
+        check_msg = self.check_trade(t, user)
+        if check_msg:
+            return check_msg
         if t.coins == 0 or t.revision:
             await context.answer("⚠️ 不支持硬币购买.")
             return
@@ -1038,7 +1041,7 @@ class Bot(metaclass=Singleton):
     async def on_exchange_add_desc(self, handler, client: Client, context: TM, parameters: dict, user: User):
         params = {k: parameters[k] for k in ("trade_id", "exchange")}
         self.set_conversation(user, context, status=ConversationStatus.WAITING_EXCHANGE_DESC, params=params)
-        return "📝 添加一个描述\n使售卖者更加了解您的物品并接受该交易, 您可以直接输入您的描述, 或点击下方的**不添加**按钮以跳过.\n(请勿输入任何密文)"
+        return "📝 添加一个描述\n使售卖者更加了解您的物品并接受该交易, 您可以直接输入您的描述, 或点击下方的**不添加**按钮以跳过.\n(**请勿输入任何密文**)"
 
     @useroper()
     async def on_exchange_no_desc(self, handler, client: Client, context: TC, parameters: dict, user: User):
@@ -1048,7 +1051,7 @@ class Bot(metaclass=Singleton):
     async def on_trade_add_desc(self, handler, client: Client, context: TM, parameters: dict, user: User):
         params = {k: v for k, v in parameters.items() if k.startswith("trade_")}
         self.set_conversation(user, context, ConversationStatus.WAITING_TRADE_DESC, params=params)
-        msg = "📝 添加一个描述\n使交换者更加了解您的物品, 您可以直接输入您的描述, 或点击下方的**不添加**按钮以跳过.\n(请勿输入任何密文)"
+        msg = "📝 添加一个描述\n使交换者更加了解您的物品, 您可以直接输入您的描述, 或点击下方的**不添加**按钮以跳过.\n(**请勿输入任何密文**)"
         if parameters.get("trade_modify", False):
             t = Trade.get_by_id(int(parameters["trade_id"]))
             if t.description:
@@ -1110,8 +1113,9 @@ class Bot(metaclass=Singleton):
         self, handler, client: Client, context: Union[TC, TM], parameters: dict, user: User
     ):
         t = Trade.get_by_id(int(parameters["trade_id"]))
-        if t.status != TradeStatus.LAUNCHED:
-            return "⚠️ 该交易不再可用."
+        check_msg = self.check_trade(t, user)
+        if check_msg:
+            return check_msg
         exchange = parameters["exchange"]
         description = parameters.get("exchange_desc", None)
         coins = parameters.get("coins", 0)
@@ -1243,6 +1247,10 @@ class Bot(metaclass=Singleton):
             trade_revision = True
         else:
             trade_revision = False
+        if parameters["trade_start_time"]:
+            available = datetime.fromtimestamp(int(parameters["trade_start_time"]))
+        else:
+            available = datetime.now()
         if parameters.get("trade_modify", False):
             with db.atomic():
                 t = Trade.get_by_id(int(parameters["trade_id"]))
@@ -1252,7 +1260,7 @@ class Bot(metaclass=Singleton):
                 t.description = parameters["trade_desc"]
                 t.photo = parameters["trade_photo"]
                 t.good = parameters["trade_good"]
-                t.available = parameters["trade_start_time"] or datetime.now()
+                t.available = available
                 t.revision = trade_revision
                 t.modified = datetime.now()
                 t.save()
@@ -1267,7 +1275,7 @@ class Bot(metaclass=Singleton):
                     description=parameters["trade_desc"],
                     photo=parameters["trade_photo"],
                     good=parameters["trade_good"],
-                    available=parameters["trade_start_time"] or datetime.now(),
+                    available=available,
                     revision=trade_revision,
                 )
                 Log.create(initiator=user, activity="add a trade", details=str(t.id))
