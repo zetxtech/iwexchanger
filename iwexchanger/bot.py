@@ -641,11 +641,12 @@ class Bot(metaclass=Singleton):
                     .where(User.id == user.id)
                     .count()
                 )
-                if (history_sold + 1) * 1000 * pow(user.sanity / 100, 10) < coins:
-                    retry = "⚠️ 金额过大, 请进行更多交易或提升信用."
                 if retry:
                     self.set_conversation(user, conv.context, ConversationStatus.WAITING_COINS)
-                    await message.reply(retry if isinstance(retry, str) else "⚠️ 输入错误, 请重新输入.")
+                    await message.reply("⚠️ 输入错误, 请重新输入.")
+                elif (history_sold + 1) * 1000 * pow(user.sanity / 100, 10) < coins:
+                    self.set_conversation(user, conv.context, ConversationStatus.WAITING_COINS)
+                    await message.reply("⚠️ 金额过大, 请进行更多交易或提升信用.")
                 else:
                     await self.to_menu(
                         client, message, "__trade_set_start_time", trade_coins=coins, **conv.params
@@ -991,9 +992,8 @@ class Bot(metaclass=Singleton):
     def check_trade(self, t: Trade, user: User):
         if t.status != TradeStatus.LAUNCHED:
             return f"⚠️ 交易当前未上架."
-        if t.status != TradeStatus.LAUNCHED:
-            if t.available and t.available > datetime.now():
-                return f"⚠️ 交易仅在 {t.available.strftime('%Y-%m-%d %H:%M:%S')} 后可用!"
+        if t.available and t.available > datetime.now():
+            return f"⚠️ 交易仅在 {t.available.strftime('%Y-%m-%d %H:%M:%S')} 后可用!"
         if t.deleted:
             return f"⚠️ 交易已被删除."
         if BlackList.select().where(BlackList.by == t.user, BlackList.of == user).get_or_none():
